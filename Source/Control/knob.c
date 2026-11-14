@@ -83,6 +83,7 @@ typedef struct _knob{
     int             x_readonly;
     int             x_theme;
     int             x_transparent;
+    int             x_style;        // 0 knob, 1 tiny (left), 2 tiny (right): only plugdata draws it
     double          x_fval;
     double          x_lastval;
     t_symbol       *x_fg;
@@ -1020,6 +1021,8 @@ static void knob_save(t_gobj *z, t_binbuf *b){
         x->x_theme, // 30: i color theme
         x->x_transparent, // 31: i transparent background
         x->x_default); // 32: f default
+    if(x->x_style) // 33: i style, only when set, so other knobs save as before
+        binbuf_addv(b, "i", x->x_style);
     binbuf_addv(b, ";");
 }
 
@@ -1506,6 +1509,10 @@ static void knob_theme(t_knob *x, t_floatarg f){
         knob_config_mg(x);
         knob_config_fg(x);
     }
+}
+
+static void knob_style(t_knob *x, t_floatarg f){
+    x->x_style = f < 0 ? 0 : f > 2 ? 2 : (int)f; // plugdata draws it; here the knob looks the same
 }
 
 static void knob_transparent(t_knob *x, t_floatarg f){
@@ -2318,7 +2325,7 @@ static void *knob_new(t_symbol *s, int ac, t_atom *av){
     x->x_cv = glist_getcanvas(x->x_glist);
 //    post("init x->x_cv = glist_getcanvas(x->x_glist) = %d", x->x_cv);
     x->x_zoom = x->x_glist->gl_zoom;
-    x->x_flag = x->x_readonly = x->x_transparent = 0;
+    x->x_flag = x->x_readonly = x->x_transparent = x->x_style = 0;
     x->x_theme = 1;
     x->x_var_set = x->x_v_flag = 0;
     x->x_snd_set = x->x_s_flag = 0;
@@ -2356,10 +2363,12 @@ static void *knob_new(t_symbol *s, int ac, t_atom *av){
             x->x_readonly = atom_getintarg(28, ac, av); // 29: read only
             x->x_theme = atom_getintarg(29, ac, av); // 30: color theme
             x->x_transparent = atom_getintarg(30, ac, av); // 31: transparent
-            if(ac == 32)
+            if(ac >= 32)
                 def = atom_getfloatarg(31, ac, av); // 32: f default value
             else
                 def = arcstart;
+            if(ac >= 33)
+                knob_style(x, atom_getfloatarg(32, ac, av)); // 33: i style
         }
         else{
             while(ac){
@@ -2810,6 +2819,7 @@ void knob_setup(void){
     class_addmethod(knob_class, (t_method)knob_active, gensym("active"), A_FLOAT, 0);
     class_addmethod(knob_class, (t_method)knob_theme, gensym("theme"), A_FLOAT, 0);
     class_addmethod(knob_class, (t_method)knob_transparent, gensym("transparent"), A_FLOAT, 0);
+    class_addmethod(knob_class, (t_method)knob_style, gensym("style"), A_FLOAT, 0);
     class_addmethod(knob_class, (t_method)knob_reset, gensym("reset"), 0);
     class_addmethod(knob_class, (t_method)knob_learn, gensym("learn"), 0);
     class_addmethod(knob_class, (t_method)knob_forget, gensym("forget"), 0);
