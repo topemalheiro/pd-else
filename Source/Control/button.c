@@ -21,6 +21,7 @@ typedef struct _button{
     t_symbol       *x_bindname;
     int             x_mode;
     int             x_oval;
+    int             x_oval_outline; // 0: an oval button keeps its square outline
     int             x_theme;
     int             x_transparent;
     int             x_x;
@@ -129,7 +130,7 @@ static void button_config_style(t_button *x){
         "-outline",
         x->x_sel ? THISGUI->i_selectcolor : THISGUI->i_foregroundcolor);
     }
-    if(x->x_edit)
+    if(x->x_edit || (x->x_oval && !x->x_oval_outline))
         pdgui_vmess(0, "crs rk", cv, "itemconfigure", x->x_base_tag,
             "-outline", x->x_sel ? THISGUI->i_selectcolor : THISGUI->i_foregroundcolor);
 }
@@ -295,7 +296,7 @@ static void button_save(t_gobj *z, t_binbuf *b){
     t_button *x = (t_button *)z;
     button_get_snd(x);
     button_get_rcv(x);
-    binbuf_addv(b, "ssiisiissiiiiiss", gensym("#X"),gensym("obj"),
+    binbuf_addv(b, "ssiisiissiiiiissi", gensym("#X"),gensym("obj"),
         (int)x->x_obj.te_xpix, (int)x->x_obj.te_ypix,
         atom_getsymbol(binbuf_getvec(x->x_obj.te_binbuf)),
         x->x_w, x->x_h,
@@ -303,7 +304,8 @@ static void button_save(t_gobj *z, t_binbuf *b){
         x->x_mode,
         x->x_theme, x->x_transparent,
         x->x_oval, x->x_readonly,
-        x->x_snd_raw, x->x_rcv_raw);
+        x->x_snd_raw, x->x_rcv_raw,
+        x->x_oval_outline);
   binbuf_addv(b, ";");
 }
 
@@ -569,6 +571,13 @@ static void button_oval(t_button *x, t_floatarg f){
     x->x_state ? button_setfg(x) : button_setbg(x);
 }
 
+static void button_ovaloutline(t_button *x, t_floatarg f){
+    x->x_oval_outline = (int)(f != 0);
+    if(!button_vis_check(x))
+        return;
+    button_config_style(x);
+}
+
 static void button_zoom(t_button *x, t_floatarg zoom){
     x->x_zoom = (int)zoom;
 }
@@ -635,6 +644,7 @@ static void *button_new(t_symbol *s, int ac, t_atom *av){
     t_symbol *rcv = gensym("empty");
     x->x_theme = 1;
     x->x_mode = x->x_readonly = x->x_transparent = 0;
+    x->x_oval_outline = 1;
     int w = 20, h = 20;
     if(ac && av->a_type == A_FLOAT){
         w = av->a_w.w_float; // width
@@ -694,6 +704,9 @@ static void *button_new(t_symbol *s, int ac, t_atom *av){
         ac--, av++;
         if(!ac) goto end;
         rcv = av->a_w.w_symbol;  // rcv
+        ac--, av++;
+        if(ac && av->a_type == A_FLOAT)
+            x->x_oval_outline = (int)(av->a_w.w_float != 0); // oval outline
         goto end;
     }
     while(ac > 0){
@@ -842,6 +855,7 @@ void button_setup(void){
     class_addmethod(button_class, (t_method)button_fgcolor, gensym("fgcolor"), A_GIMME, 0);
     class_addmethod(button_class, (t_method)button_readonly, gensym("readonly"), A_FLOAT, 0);
     class_addmethod(button_class, (t_method)button_oval, gensym("oval"), A_FLOAT, 0);
+    class_addmethod(button_class, (t_method)button_ovaloutline, gensym("ovaloutline"), A_FLOAT, 0);
     class_addmethod(button_class, (t_method)button_transparent, gensym("transparent"), A_FLOAT, 0);
     class_addmethod(button_class, (t_method)button_send, gensym("send"), A_DEFSYM, 0);
     class_addmethod(button_class, (t_method)button_receive, gensym("receive"), A_DEFSYM, 0);
